@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from word_segmentation.models.abstract_model import AbstractModel
+from models.abstract_model import AbstractModel
 
 class LSTMModel(AbstractModel):
 

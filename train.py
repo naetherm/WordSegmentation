@@ -41,15 +41,16 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
   print("Un train")
   batch_size = args.batch_size
 
-  loss_function = nn.CrossEntropyLoss()
-  optimizer = optim.Adam(model.parameters(), lr=args.lr)
-
   is_cuda = use_gpu and torch.cuda.is_available()
+  device = torch.device("cuda" if is_cuda else "cpu")
   if is_cuda:
     LOGGER.info("CUDA is available")
-    model = model.cuda()
+    model = model.to(device)
   else:
     LOGGER.info("CPU mode")
+
+  loss_function = nn.CrossEntropyLoss().to(device)
+  optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
   # Create training and testing data
   X = []
@@ -57,13 +58,14 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
   with open(args.training_data, encoding='utf-8') as fin:
     for line in fin:
       # Generate X and Y
-      x, y = sent_to_xy(line, char2idx)
-      # Char2idx
-      #x = [char2idx[x] if x in char2idx.keys() else char2idx['@@@PADDING@@@'] for x in line]
+      if len(line) < 2040 and len(line) > 3:
+        x, y = sent_to_xy(line, char2idx)
+        # Char2idx
+        #x = [char2idx[x] if x in char2idx.keys() else char2idx['@@@PADDING@@@'] for x in line]
 
-      # Append
-      X.append(x)
-      Y.append(y)
+        # Append
+        X.append(x)
+        Y.append(y)
 
   #print("X: {}".format(X[:10]))
   #print("Y: {}".format(Y[:10]))
@@ -71,7 +73,7 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
   #Y = np.asarray(Y)
 
   train_X, test_X, train_Y, test_Y = train_test_split(X, Y, test_size=0.2)
-  
+
 
   for e in range(args.num_epochs):
     start_time = time.time()
@@ -79,19 +81,19 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
 
     # Training
     train_acc, train_loss, test_acc, test_loss = 0.0, 0.0, 0.0, 0.0
-  
+
     pbar = tqdm.tqdm(
       range(0, len(train_X), batch_size), desc="Training"
     )
     for i in pbar:
       batch_x = train_X[i]#:min(i + batch_size, len(train_X))]
       batch_y = train_Y[i]#:min(i + batch_size, len(train_X))]
-      
+
       # TODO(naetherm): Train!
-      if is_cuda:
-        batch_x = batch_x.cuda()
-        batch_y = batch_y.cuda()
-      
+      #if is_cuda:
+      batch_x = batch_x.to(device)
+      batch_y = batch_y.to(device)
+
       #print("batch_x: {}".format(batch_x))
       model.zero_grad()
 
@@ -100,22 +102,29 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
       tag_scores = tag_scores.squeeze()
       tags = batch_y.squeeze()
 
-      try:
-        loss = loss_function(tag_scores, tags)
-      except:
-        print("error!")
+      #try:
+      loss = loss_function(tag_scores, tags)
 
       loss.backward()
       optimizer.step()
 
       acc = (np.argmax(tag_scores.detach().numpy(), -1) == np.asarray(tags)).sum().item() / len(tags)
 
-    
       # Sanity check
-      assert not np.isnan(loss.detach().numpy())
+      #assert not np.isnan(loss.numpy())
       train_loss += loss.detach().numpy()
       train_acc += acc
       pbar.set_postfix(loss=loss, accuracy=acc)
+
+      #except:
+      #  pass
+      #LOGGER.warning("batch_x: {}".format(batch_x))
+      #LOGGER.warning("batch_y: {}".format(batch_y))
+      #LOGGER.warning("loss: {}".format(loss))
+
+
+    LOGGER.warning("Training: Loss={}, Acc={}".format(train_loss/len(train_X), train_acc/len(train_X)))
+
 
     # Validation
     pbar = tqdm.tqdm(
@@ -124,12 +133,12 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
     for i in pbar:
       batch_x = test_X[i]#:min(i + batch_size, len(train_X))]
       batch_y = test_Y[i]#:min(i + batch_size, len(train_X))]
-      
+
       # TODO(naetherm): Train!
-      if is_cuda:
-        batch_x = batch_x.cuda()
-        batch_y = batch_y.cuda()
-      
+      #if is_cuda:
+      batch_x = batch_x.to(device)
+      batch_y = batch_y.to(device)
+
       #print("batch_x: {}".format(batch_x))
       model.zero_grad()
 
@@ -138,26 +147,31 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
       tag_scores = tag_scores.squeeze()
       tags = batch_y.squeeze()
 
-      try:
-        loss = loss_function(tag_scores, tags)
-      except:
-        print("error!")
+      #try:
+      loss = loss_function(tag_scores, tags)
 
       #loss.backward()
       #optimizer.step()
 
       acc = (np.argmax(tag_scores.detach().numpy(), -1) == np.asarray(tags)).sum().item() / len(tags)
 
-    
+
       # Sanity check
       assert not np.isnan(loss.detach().numpy())
-      train_loss += loss.detach().numpy()
-      train_acc += acc
+      test_loss += loss.detach().numpy()
+      test_acc += acc
       pbar.set_postfix(loss=loss, accuracy=acc)
+
+      #except:
+      #  pass
+      #  #LOGGER.warning("batch_x: {}".format(batch_x))
+      #  #LOGGER.warning("batch_y: {}".format(batch_y))
+      #  #LOGGER.warning("loss: {}".format(loss))
+
 
     diff_time = time.time() - start_time
 
-    LOGGER.info("Epoch time: {}".format(diff_time))
+    LOGGER.warning("Epoch time: {}, Loss={}, Acc={}".format(diff_time, test_loss/len(test_X), test_acc/len(test_X)))
 
   # Testing
   pbar = tqdm.tqdm(
@@ -166,12 +180,12 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
   for i in pbar:
     batch_x = test_X[i]#:min(i + batch_size, len(train_X))]
     batch_y = test_Y[i]#:min(i + batch_size, len(train_X))]
-    
+
     # TODO(naetherm): Train!
     if is_cuda:
       batch_x = batch_x.cuda()
       batch_y = batch_y.cuda()
-    
+
     #print("batch_x: {}".format(batch_x))
     model.zero_grad()
 
@@ -190,7 +204,7 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
 
     acc = (np.argmax(tag_scores.detach().numpy(), -1) == np.asarray(tags)).sum().item() / len(tags)
 
-  
+
     # Sanity check
     assert not np.isnan(loss.detach().numpy())
     train_loss += loss.detach().numpy()
@@ -204,7 +218,7 @@ def main(argv=None):
 
   parser = argparse.ArgumentParser()
   parser.add_argument(
-    '--training-data', dest='training_data', type=str, required=True, 
+    '--training-data', dest='training_data', type=str, required=True,
     help='The path to the training data'
   )
   parser.add_argument(
@@ -268,14 +282,14 @@ def main(argv=None):
 
   if args.model == 'cnn':
     from models.cnn_model import CNNModel
-    
+
     model = CNNModel(
       32,
       vocab_size,
       2,
       0
     )
-    
+
   elif args.model == 'lstm':
     from models.rnn_model import LSTMModel
     """
@@ -288,7 +302,7 @@ def main(argv=None):
     """
   elif args.model == 'gru':
     from models.rnn_model import GRUModel
-    
+
     model = GRUModel(
       32,
       256,
@@ -298,7 +312,7 @@ def main(argv=None):
   elif args.model == 'nastase':
     from models.nastase import NastaseModel
     #from word_segmentation.layers.torch_nastase_layers import *
-    
+
     #model = NastaseModel()
   else:
     LOGGER.error("Unknown model '" + args.model + "'")
@@ -306,7 +320,7 @@ def main(argv=None):
     exit(1)
 
   # Start training
-  train(model, args, char2idx, idx2char)
+  train(model, args, char2idx, idx2char, False)
 
   # Save trained model
   #model.save()

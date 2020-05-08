@@ -1,0 +1,15 @@
+version: 1
+kind: experiment
+framework: pytorch
+build:
+  image: 'pytorch/pytorch:1.5-cuda10.1-cudnn7-runtime'
+  build_steps:
+    - pip install -U scikit-learn scipy matplotlib
+environment:
+  resources:
+    gpu:
+      requests: 1
+      limits: 1
+run:
+  cmd: python train.py --training-data data/tiny_reddit/xstrain.txt --model cnn --batch-size 1 --output-path output/
+
