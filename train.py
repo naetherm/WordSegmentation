@@ -123,11 +123,17 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
         loss.backward()
         optimizer.step()
 
-        acc = (np.argmax(tag_scores.detach().numpy(), -1) == np.asarray(tags)).sum().item() / len(tags)
+        if is_cuda:
+          loss_value = loss.cpu().data.numpy()
+          ts_value = tag_scores.cpu().data.numpy()
+        else:
+          loss_value = loss.data.numpy()
+          ts_value = tag_scores.data.numpy()
+        acc = (np.argmax(ts_value, -1) == np.asarray(tags)).sum().item() / len(tags)
 
         # Sanity check
         #assert not np.isnan(loss.numpy())
-        train_loss += loss.detach().numpy()
+        train_loss += loss_value
         train_acc += acc
         pbar.set_postfix(loss=loss, accuracy=acc)
 
@@ -171,12 +177,19 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
       #loss.backward()
       #optimizer.step()
 
-      acc = (np.argmax(tag_scores.detach().numpy(), -1) == np.asarray(tags)).sum().item() / len(tags)
+
+      if is_cuda:
+        loss_value = loss.cpu().data.numpy()
+        ts_value = tag_scores.cpu().data.numpy()
+      else:
+        loss_value = loss.data.numpy()
+        ts_value = tag_scores.data.numpy()
+      acc = (np.argmax(ts_value, -1) == np.asarray(tags)).sum().item() / len(tags)
 
 
       # Sanity check
-      assert not np.isnan(loss.detach().numpy())
-      test_loss += loss.detach().numpy()
+      assert not np.isnan(loss_value)
+      test_loss += loss_value
       test_acc += acc
       pbar.set_postfix(loss=loss, accuracy=acc)
 
@@ -220,12 +233,18 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
     #loss.backward()
     #optimizer.step()
 
-    acc = (np.argmax(tag_scores.detach().numpy(), -1) == np.asarray(tags)).sum().item() / len(tags)
+    if is_cuda:
+      loss_value = loss.cpu().data.numpy()
+      ts_value = tag_scores.cpu().data.numpy()
+    else:
+      loss_value = loss.data.numpy()
+      ts_value = tag_scores.data.numpy()
+    acc = (np.argmax(ts_value, -1) == np.asarray(tags)).sum().item() / len(tags)
 
 
     # Sanity check
-    assert not np.isnan(loss.detach().numpy())
-    train_loss += loss.detach().numpy()
+    assert not np.isnan(loss_value)
+    train_loss += loss_value
     train_acc += acc
     pbar.set_postfix(loss=loss, accuracy=acc)
 
