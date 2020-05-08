@@ -12,3 +12,7 @@ class AbstractModel(nn.Module):
     """ Constructor """
     super(AbstractModel, self).__init__()
 
+
+  @classmethod
+  def count_parameters(cls, model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)

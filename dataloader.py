@@ -50,18 +50,24 @@ def lazy_scan_vocabulary(text_file, padding_idx=0, min_count=1):
   counter = Counter()
 
   with open(text_file, encoding='utf-8') as fin:
-    text = fin.readline().rstrip()
+    for line in fin:
+      text = line.rstrip()
 
-    c2 = Counter(vocab for vocab in text)
-    
-    counter.update(c2)
+      c2 = Counter(vocab for vocab in text)
+      
+      counter.update(c2)
   
+  print("counter: {}".format(counter))
   idx2char = []
   char2idx = {}
   idx2char.append("@@@PADDING@@@")
   char2idx["@@@PADDING@@@"] = padding_idx
+  idx2char.append("@@@UNKNOWN@@@")
+  char2idx["@@@UNKNOWN@@@"] = padding_idx+1
   idx2char.extend([vocab for vocab in sorted(counter, key=lambda x:-counter[x])])
-  char2idx.update({vocab:idx+1 for idx, vocab in enumerate(idx2char)})
+  char2idx.update({vocab:idx for idx, vocab in enumerate(idx2char)})
+  print("idx2char: {}".format(idx2char))
+  print("char2idx: {}".format(char2idx))
 
   return idx2char, char2idx
 
@@ -87,7 +93,7 @@ def scan_vocabulary(texts, padding_idx=0,min_count=1):
   char_to_idx = {vocab:idx for idx, vocab in enumerate(idx_to_char)}
   return idx_to_char, char_to_idx
 
-def to_idx(item, mapper, unknown=None):
+def to_idx(item, mapper, unknown="@@@UNKNOWN@@@"):
   """
   :param item: Object
       Object to be encoded

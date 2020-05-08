@@ -56,13 +56,17 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
   X = []
   Y = []
   with open(args.training_data, encoding='utf-8') as fin:
-    for line in fin:
+    for lidx, line in enumerate(fin):
+      line = line.strip()
       # Generate X and Y
-      if len(line) < 2040 and len(line) > 3:
+      if "ಠ" in line:
+        print("detected[line={}]: {}".format(lidx, line))
+      if len(line) < 2040 and len(line) > 4:
         x, y = sent_to_xy(line, char2idx)
+
         # Char2idx
         #x = [char2idx[x] if x in char2idx.keys() else char2idx['@@@PADDING@@@'] for x in line]
-
+        #if len(line) < 2040 and len(line) > 8:
         # Append
         X.append(x)
         Y.append(y)
@@ -102,25 +106,39 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
       tag_scores = tag_scores.squeeze()
       tags = batch_y.squeeze()
 
-      #try:
-      loss = loss_function(tag_scores, tags)
+      try:
+      #  #LOGGER.warning(tags.shape)
+        loss = loss_function(tag_scores, tags)
+        #except:
+        #  LOGGER.warning("batch_x: {}".format(batch_x))
+        #  LOGGER.warning("batch_y: {}".format(batch_y))
+        #  LOGGER.warning("tag_scores: {}".format(tag_scores))
+        #  LOGGER.warning("tags: {}".format(tags))
+        #  asd = ""
+        #  for x in batch_x:
+        #    for xx in x:
+        #      asd += idx2char[xx]
+        #  LOGGER.warning("asd: {}".format(asd))
 
-      loss.backward()
-      optimizer.step()
+        loss.backward()
+        optimizer.step()
 
-      acc = (np.argmax(tag_scores.detach().numpy(), -1) == np.asarray(tags)).sum().item() / len(tags)
+        acc = (np.argmax(tag_scores.detach().numpy(), -1) == np.asarray(tags)).sum().item() / len(tags)
 
-      # Sanity check
-      #assert not np.isnan(loss.numpy())
-      train_loss += loss.detach().numpy()
-      train_acc += acc
-      pbar.set_postfix(loss=loss, accuracy=acc)
+        # Sanity check
+        #assert not np.isnan(loss.numpy())
+        train_loss += loss.detach().numpy()
+        train_acc += acc
+        pbar.set_postfix(loss=loss, accuracy=acc)
 
-      #except:
-      #  pass
-      #LOGGER.warning("batch_x: {}".format(batch_x))
-      #LOGGER.warning("batch_y: {}".format(batch_y))
-      #LOGGER.warning("loss: {}".format(loss))
+        #except:
+        #  pass
+        #LOGGER.warning("batch_x: {}".format(batch_x))
+        #LOGGER.warning("batch_y: {}".format(batch_y))
+        #LOGGER.warning("loss: {}".format(loss))
+      except:
+        LOGGER.warning("tag_scores: {}".format(tag_scores))
+        LOGGER.warning("tags: {}".format(tags))
 
 
     LOGGER.warning("Training: Loss={}, Acc={}".format(train_loss/len(train_X), train_acc/len(train_X)))
