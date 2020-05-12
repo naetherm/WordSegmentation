@@ -62,7 +62,7 @@ class GRUModel(AbstractModel):
     bias=True, 
     dropout=0.1, 
     bidirectional=False):
-    super(LSTMModel, self).__init__()
+    super(GRUModel, self).__init__()
 
     self.hidden_dim = hidden_dim
     self.num_layers = num_layers
