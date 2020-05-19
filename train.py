@@ -38,7 +38,6 @@ def batched_train(model, args):
 
 
 def train(model, args, char2idx, idx2char, use_gpu=False):
-  print("Un train")
   batch_size = args.batch_size
 
   is_cuda = use_gpu and torch.cuda.is_available()
@@ -77,6 +76,7 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
   #Y = np.asarray(Y)
 
   train_X, test_X, train_Y, test_Y = train_test_split(X, Y, test_size=0.2)
+  train_X, valid_X, train_Y, valid_Y = train_test_split(train_X, train_Y, test_size=0.2)
 
 
   for e in range(args.num_epochs):
@@ -102,49 +102,38 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
       model.zero_grad()
 
       # Perform model
+      #CNN
+      #model.hidden = model.init_hidden()
       tag_scores = model(batch_x)
-      tag_scores = tag_scores.squeeze()
+      tag_scores = tag_scores.squeeze()#CNN
       tags = batch_y.squeeze()
+      
 
-      try:
+      #try:
       #  #LOGGER.warning(tags.shape)
-        loss = loss_function(tag_scores, tags)
-        #except:
-        #  LOGGER.warning("batch_x: {}".format(batch_x))
-        #  LOGGER.warning("batch_y: {}".format(batch_y))
-        #  LOGGER.warning("tag_scores: {}".format(tag_scores))
-        #  LOGGER.warning("tags: {}".format(tags))
-        #  asd = ""
-        #  for x in batch_x:
-        #    for xx in x:
-        #      asd += idx2char[xx]
-        #  LOGGER.warning("asd: {}".format(asd))
+      loss = loss_function(tag_scores, tags)
 
-        loss.backward()
-        optimizer.step()
+      loss.backward()
+      optimizer.step()
 
-        if is_cuda:
-          loss_value = loss.cpu().data.numpy()
-          ts_value = tag_scores.cpu().data.numpy()
-        else:
-          loss_value = loss.data.numpy()
-          ts_value = tag_scores.data.numpy()
-        acc = (np.argmax(ts_value, -1) == np.asarray(tags)).sum().item() / len(tags)
+      if is_cuda:
+        loss_value = loss.cpu().data.numpy()
+        ts_value = tag_scores.cpu().data.numpy()
+      else:
+        loss_value = loss.data.numpy()
+        ts_value = tag_scores.data.numpy()
 
-        # Sanity check
-        #assert not np.isnan(loss.numpy())
-        train_loss += loss_value
-        train_acc += acc
-        pbar.set_postfix(loss=loss, accuracy=acc)
+      acc = (np.argmax(ts_value, -1) == np.asarray(tags)).sum().item() / len(tags)
 
-        #except:
-        #  pass
-        #LOGGER.warning("batch_x: {}".format(batch_x))
-        #LOGGER.warning("batch_y: {}".format(batch_y))
-        #LOGGER.warning("loss: {}".format(loss))
-      except:
-        LOGGER.warning("tag_scores: {}".format(tag_scores))
-        LOGGER.warning("tags: {}".format(tags))
+      # Sanity check
+      #assert not np.isnan(loss.numpy())
+      train_loss += loss_value
+      train_acc += acc
+      pbar.set_postfix(loss=loss, accuracy=acc)
+
+      #except:
+      #  LOGGER.warning("tag_scores: {}".format(tag_scores))
+      #  LOGGER.warning("tags: {}".format(tags))
 
 
     LOGGER.warning("Training: Loss={}, Acc={}".format(train_loss/len(train_X), train_acc/len(train_X)))
@@ -152,11 +141,11 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
 
     # Validation
     pbar = tqdm.tqdm(
-      range(0, len(test_X), batch_size), desc="Validation"
+      range(0, len(valid_X), batch_size), desc="Validation"
     )
     for i in pbar:
-      batch_x = test_X[i]#:min(i + batch_size, len(train_X))]
-      batch_y = test_Y[i]#:min(i + batch_size, len(train_X))]
+      batch_x = valid_X[i]#:min(i + batch_size, len(train_X))]
+      batch_y = valid_Y[i]#:min(i + batch_size, len(train_X))]
 
       # TODO(naetherm): Train!
       #if is_cuda:
@@ -193,24 +182,34 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
       test_acc += acc
       pbar.set_postfix(loss=loss, accuracy=acc)
 
-      #except:
-      #  pass
-      #  #LOGGER.warning("batch_x: {}".format(batch_x))
-      #  #LOGGER.warning("batch_y: {}".format(batch_y))
-      #  #LOGGER.warning("loss: {}".format(loss))
-
 
     diff_time = time.time() - start_time
 
-    LOGGER.warning("Epoch time: {}, Loss={}, Acc={}".format(diff_time, test_loss/len(test_X), test_acc/len(test_X)))
+    LOGGER.warning("Epoch time: {}, Loss={}, Acc={}".format(diff_time, test_loss/len(valid_X), test_acc/len(valid_X)))
 
   # Testing
   pbar = tqdm.tqdm(
     range(0, len(test_X), batch_size), desc="Validation"
   )
+
+
+  grt_file = open("testout/grt.txt", "w")
+  res_file = open("testout/prd.txt", "w")
+
+  def to_string(lst):
+    result = ""
+    for e in lst:
+      if e == 0:
+        result += "0"
+      else:
+        result += "1"
+    return result + "\n"
+
   for i in pbar:
     batch_x = test_X[i]#:min(i + batch_size, len(train_X))]
     batch_y = test_Y[i]#:min(i + batch_size, len(train_X))]
+
+    grt_file.write(to_string(batch_y[0]))
 
     # TODO(naetherm): Train!
     if is_cuda:
@@ -242,11 +241,17 @@ def train(model, args, char2idx, idx2char, use_gpu=False):
     acc = (np.argmax(ts_value, -1) == np.asarray(tags)).sum().item() / len(tags)
 
 
+    res_file.write(to_string(np.argmax(ts_value, -1)))
+    #print("tag_scores: {}".format(np.argmax(ts_value, -1)))
+
     # Sanity check
     assert not np.isnan(loss_value)
     train_loss += loss_value
     train_acc += acc
     pbar.set_postfix(loss=loss, accuracy=acc)
+
+  grt_file.close()
+  res_file.close()
 
 def main(argv=None):
 
@@ -268,7 +273,7 @@ def main(argv=None):
     help='The number of epochs to train for'
   )
   parser.add_argument(
-    '--batch-size', dest='batch_size', type=int, default=2,
+    '--batch-size', dest='batch_size', type=int, default=1,
     help='The batch size to train with'
   )
   parser.add_argument(
@@ -329,21 +334,21 @@ def main(argv=None):
 
   elif args.model == 'lstm':
     from models.rnn_model import LSTMModel
-    """
+    
     model = LSTMModel(
       32,
       256,
-      -1,
+      vocab_size,
       2
     )
-    """
+    
   elif args.model == 'gru':
     from models.rnn_model import GRUModel
 
     model = GRUModel(
       32,
       256,
-      -1,
+      vocab_size,
       2
     )
   elif args.model == 'nastase':
@@ -356,11 +361,16 @@ def main(argv=None):
     # Break
     exit(1)
 
+  def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+  print("# Parameters: {}".format(count_parameters(model)))
+
   # Start training
   train(model, args, char2idx, idx2char, False)
 
   # Save trained model
-  #model.save()
+  torch.save(model, args.output_path + "/model")
 
 
 if __name__ == '__main__':
