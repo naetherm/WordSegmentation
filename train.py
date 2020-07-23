@@ -265,7 +265,7 @@ def main(argv=None):
   )
   parser.add_argument(
     '--model', dest='model', type=str, default="",
-    choices=['cnn', 'lstm', 'gru', 'nastase'],
+    choices=['cnn', 'lstm', 'gru'],
     help='The model to train'
   )
   parser.add_argument(
@@ -351,11 +351,6 @@ def main(argv=None):
       vocab_size,
       2
     )
-  elif args.model == 'nastase':
-    from models.nastase import NastaseModel
-    #from word_segmentation.layers.torch_nastase_layers import *
-
-    #model = NastaseModel()
   else:
     LOGGER.error("Unknown model '" + args.model + "'")
     # Break
